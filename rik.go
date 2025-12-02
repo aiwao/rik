@@ -8,7 +8,7 @@ import (
 var DefaultClient *http.Client
 
 func Get(url string) *RequestBuilder {
-	return NewRequest(url, "Get")
+	return NewRequest(url, "GET")
 }
 
 func Post(url string) *RequestBuilder {

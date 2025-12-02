@@ -19,18 +19,24 @@ const (
 )
 
 type RequestBuilder struct {
-	url         string
+	urlData     *url.URL
 	method      string
 	headerData  http.Header
 	contentType string
 	bodyData    io.Reader
+	queryData   *url.Values
 	client      *http.Client
 }
 
-func NewRequest(url, method string) *RequestBuilder {
+func NewRequest(urlData, method string) *RequestBuilder {
+	u, err := url.Parse(urlData)
+	if err != nil {
+		panic(err)
+	}
 	return &RequestBuilder{
-		url:    url,
-		method: method,
+		urlData:   u,
+		method:    method,
+		queryData: &url.Values{},
 	}
 }
 
@@ -41,6 +47,22 @@ func (r *RequestBuilder) Client(client *http.Client) *RequestBuilder {
 
 func (r *RequestBuilder) Header(data http.Header) *RequestBuilder {
 	r.headerData = data
+	return r
+}
+
+func (r *RequestBuilder) Query(key string, value ...string) *RequestBuilder {
+	for _, v := range value {
+		r.queryData.Add(key, v)
+	}
+	r.urlData.RawQuery = r.queryData.Encode()
+	return r
+}
+
+func (r *RequestBuilder) Queries(data url.Values) *RequestBuilder {
+	for k := range data {
+		r.queryData.Add(k, data.Get(k))
+	}
+	r.urlData.RawQuery = r.queryData.Encode()
 	return r
 }
 
@@ -87,7 +109,7 @@ func (r *RequestBuilder) Multipart(data *MultipartData) *RequestBuilder {
 }
 
 func (r *RequestBuilder) Build() (*http.Request, error) {
-	req, err := http.NewRequest(r.method, r.url, r.bodyData)
+	req, err := http.NewRequest(r.method, r.urlData.String(), r.bodyData)
 	if err == nil {
 		if r.headerData != nil {
 			req.Header = r.headerData
