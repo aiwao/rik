@@ -2,3 +2,5 @@
 * text=auto
 hello.txt export-ignore
 rik_test.go export-ignore
+.gitignore export-ignore
+.gitattributes export-ignore
