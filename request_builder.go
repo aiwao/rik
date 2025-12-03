@@ -21,10 +21,11 @@ const (
 type RequestBuilder struct {
 	urlData     *url.URL
 	method      string
-	headerData  http.Header
+	headerData  *http.Header
 	contentType string
 	bodyData    io.Reader
 	queryData   *url.Values
+	formData    *url.Values
 	client      *http.Client
 }
 
@@ -34,9 +35,11 @@ func NewRequest(urlData, method string) *RequestBuilder {
 		panic(err)
 	}
 	return &RequestBuilder{
-		urlData:   u,
-		method:    method,
-		queryData: &url.Values{},
+		urlData:    u,
+		method:     method,
+		headerData: &http.Header{},
+		queryData:  &url.Values{},
+		formData:   &url.Values{},
 	}
 }
 
@@ -45,8 +48,17 @@ func (r *RequestBuilder) Client(client *http.Client) *RequestBuilder {
 	return r
 }
 
-func (r *RequestBuilder) Header(data http.Header) *RequestBuilder {
-	r.headerData = data
+func (r *RequestBuilder) Header(key string, value ...string) *RequestBuilder {
+	for _, v := range value {
+		r.headerData.Add(key, v)
+	}
+	return r
+}
+
+func (r *RequestBuilder) Headers(data http.Header) *RequestBuilder {
+	for k := range data {
+		r.Header(k, data.Values(k)...)
+	}
 	return r
 }
 
@@ -72,28 +84,26 @@ func (r *RequestBuilder) Body(contentType string, data io.Reader) *RequestBuilde
 	return r
 }
 
-func (r *RequestBuilder) json(v any) *RequestBuilder {
-	b, err := json.Marshal(v)
+func (r *RequestBuilder) JSON(data any) *RequestBuilder {
+	b, err := json.Marshal(data)
 	if err != nil {
 		panic(err)
 	}
 	return r.Body(ContentTypeJSON, bytes.NewBuffer(b))
 }
 
-func (r *RequestBuilder) JSON(data map[string]interface{}) *RequestBuilder {
-	return r.json(data)
-}
-
-func (r *RequestBuilder) JSONArray(data ...map[string]interface{}) *RequestBuilder {
-	return r.json(data)
-}
-
-func (r *RequestBuilder) Form(data map[string]string) *RequestBuilder {
-	values := url.Values{}
-	for k, v := range data {
-		values.Add(k, v)
+func (r *RequestBuilder) Form(key string, value ...string) *RequestBuilder {
+	for _, v := range value {
+		r.formData.Add(key, v)
 	}
-	return r.Body(ContentTypeForm, strings.NewReader(values.Encode()))
+	return r.Body(ContentTypeForm, strings.NewReader(r.formData.Encode()))
+}
+
+func (r *RequestBuilder) Forms(data url.Values) *RequestBuilder {
+	for k, v := range data {
+		r.Form(k, v...)
+	}
+	return r.Body(ContentTypeForm, strings.NewReader(r.formData.Encode()))
 }
 
 func (r *RequestBuilder) Text(data string) *RequestBuilder {
@@ -112,7 +122,7 @@ func (r *RequestBuilder) Build() (*http.Request, error) {
 	req, err := http.NewRequest(r.method, r.urlData.String(), r.bodyData)
 	if err == nil {
 		if r.headerData != nil {
-			req.Header = r.headerData
+			req.Header = *r.headerData
 		}
 		if req.Header.Get("Content-Type") == "" && r.contentType != "" {
 			req.Header.Set("Content-Type", r.contentType)

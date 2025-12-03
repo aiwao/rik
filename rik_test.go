@@ -2,51 +2,129 @@ package rik
 
 import (
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
 )
 
+func logResponse(t *testing.T, res *http.Response, s string) {
+	t.Logf("Status %d", res.StatusCode)
+	t.Log(s)
+}
+
 func Test(t *testing.T) {
-	pastebin := "https://pastebin.com/raw/seCnUfhr"
-	webhook := "https://discord.com/api/webhooks/0/A"
-	messages := "https://discord.com/api/v9/channels/0/messages"
-	token := "token"
-	filename := "hello.txt"
-
-	//Specify the client
-	DefaultClient = &http.Client{}
-
-	s, res := Get(pastebin).MustDoReadString()
-	t.Logf("GET (%d): %s", res.StatusCode, s)
-
-	s, res = Post(webhook).
-		JSON(map[string]interface{}{"content": "hello json"}).
-		MustDoReadString()
-	t.Logf("JSON POST (%d): %s", res.StatusCode, s)
-
-	s, res = Post(messages).
-		JSON(map[string]interface{}{"content": "hello json with header"}).
-		Header(map[string][]string{"authorization": {token}}).
-		MustDoReadString()
-	t.Logf("JSON POST with Header (%d): %s", res.StatusCode, s)
-
-	file, err := os.Open(filename)
-	if err != nil {
-		t.Fatal(err)
+	requestTester := "http://127.0.0.1:8787"
+	client := &http.Client{}
+	//Test Get request
+	{
+		s, res, err := Get(requestTester).
+			//Set http client
+			Client(client).
+			DoReadString()
+		if err != nil {
+			t.Log(err)
+			return
+		}
+		logResponse(t, res, s)
 	}
-	s, res = Post(webhook).
-		Multipart(NewMultipart().
-			File(filename, file).
-			Field("content", strings.NewReader("hello multiport")).
-			Boundary("END_OF_PART").
-			MustBuild(),
-		).
-		MustDoReadString()
-	t.Logf("Multipart POST with Header (%d): %s", res.StatusCode, s)
-
-	s, res = Post(webhook).
-		Form(map[string]string{"content": "hello form"}).
-		MustDoReadString()
-	t.Logf("Form POST (%d): %s", res.StatusCode, s)
+	//Test Post request with JSON and JSONBuilder
+	{
+		s, res, err := Post(requestTester).
+			JSON(NewJSON().
+				Set("Key", "Value").
+				Set("Keys", []any{"Value1"}).
+				Add("Keys", "Value2").
+				Build(),
+			).
+			//Set http client and do request
+			DoReadStringClient(client)
+		if err != nil {
+			t.Log(err)
+			return
+		}
+		logResponse(t, res, s)
+	}
+	//Set default http client for all requests
+	DefaultClient = client
+	//Test Put request with FormData
+	{
+		s, res, err := Put(requestTester).
+			Form("Key", "Value1").
+			Form("Key", "Value2").
+			Form("Key2", "Key2Value1", "Key2Value2").
+			Forms(url.Values{
+				"Key3": {"Key3Value1", "Key3Value2"},
+				"Key4": {"Key4Value1", "Key4Value2"},
+			}).
+			DoReadString()
+		if err != nil {
+			t.Log(err)
+			return
+		}
+		logResponse(t, res, s)
+	}
+	//Test Post request with Query parameters
+	{
+		s, res, err := Post(requestTester).
+			Query("Key", "Value1").
+			Query("Key", "Value2").
+			Query("Key2", "Key2Value1", "Key2Value2").
+			Queries(url.Values{
+				"Key3": {"Key3Value1", "Key3Value2"},
+				"Key4": {"Key4Value1", "Key4Value2"},
+			}).
+			DoReadString()
+		if err != nil {
+			t.Log(err)
+			return
+		}
+		logResponse(t, res, s)
+	}
+	//Test Post request with Headers and File
+	{
+		file, err := os.Open("hello.txt")
+		if err != nil {
+			t.Log(err)
+			return
+		}
+		defer file.Close()
+		s, res, err := Post(requestTester).
+			Header("Key", "Value1").
+			Header("Key", "Value2").
+			Header("Key2", "Value1", "Value2").
+			Headers(http.Header{
+				"Key3": {"Key3Value1", "Key3Value2"},
+				"Key4": {"Key4Value1", "Key4Value2"},
+			}).
+			File(file).
+			DoReadString()
+		if err != nil {
+			t.Log(err)
+			return
+		}
+		logResponse(t, res, s)
+	}
+	//Test Post request with MultipartData and MultipartBuilder
+	{
+		file, err := os.Open("hello.txt")
+		if err != nil {
+			t.Log(err)
+			return
+		}
+		defer file.Close()
+		s, res, err := Post(requestTester).
+			Multipart(NewMultipart().
+				File("hello.txt", file).
+				Field("content", strings.NewReader("data")).
+				Boundary("END_OF_PART").
+				MustBuild(),
+			).
+			DoReadString()
+		if err != nil {
+			t.Log(err)
+			return
+		}
+		logResponse(t, res, s)
+	}
 }
