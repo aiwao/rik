@@ -14,7 +14,7 @@ func logResponse(t *testing.T, res *http.Response, s string) {
 }
 
 func Test(t *testing.T) {
-	requestTester := "http://127.0.0.1:8787"
+	requestTester := "https://request-tester.cloudflare2025-5fc.workers.dev/"
 	client := &http.Client{}
 	//Test Get request
 	{
