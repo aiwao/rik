@@ -14,6 +14,7 @@ func logResponse(t *testing.T, res *http.Response, s string) {
 }
 
 func Test(t *testing.T) {
+	//https://github.com/aiwao/request-tester
 	requestTester := "https://request-tester.cloudflare2025-5fc.workers.dev/"
 	client := &http.Client{}
 	//Test Get request
