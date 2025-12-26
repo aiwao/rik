@@ -2,6 +2,7 @@ package rik
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -27,6 +28,7 @@ type RequestBuilder struct {
 	queryData   *url.Values
 	formData    *url.Values
 	client      *http.Client
+	ctx         context.Context
 }
 
 func NewRequest(urlData, method string) *RequestBuilder {
@@ -41,6 +43,11 @@ func NewRequest(urlData, method string) *RequestBuilder {
 		queryData:  &url.Values{},
 		formData:   &url.Values{},
 	}
+}
+
+func (r *RequestBuilder) Context(ctx context.Context) *RequestBuilder {
+	r.ctx = ctx
+	return r
 }
 
 func (r *RequestBuilder) Client(client *http.Client) *RequestBuilder {
@@ -123,7 +130,13 @@ func (r *RequestBuilder) Multipart(data *MultipartData) *RequestBuilder {
 }
 
 func (r *RequestBuilder) Build() (*http.Request, error) {
-	req, err := http.NewRequest(r.method, r.urlData.String(), r.bodyData)
+	var req *http.Request
+	var err error
+	if r.ctx != nil {
+		req, err = http.NewRequestWithContext(r.ctx, r.method, r.urlData.String(), r.bodyData)
+	} else {
+		req, err = http.NewRequest(r.method, r.urlData.String(), r.bodyData)
+	}
 	if err == nil {
 		if r.headerData != nil {
 			req.Header = *r.headerData
