@@ -1,3 +1,4 @@
+[![Go Reference](https://pkg.go.dev/badge/github.com/aiwao/rik.svg)](https://pkg.go.dev/github.com/aiwao/rik)
 # rik
  golang net/http helper
  
